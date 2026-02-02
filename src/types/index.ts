@@ -54,6 +54,7 @@ export interface ImageItem {
   result?: Blob;
   error?: string;
   progress: number;
+  selected?: boolean; // For download selection
 }
 
 export interface CompressionSettings {
@@ -104,6 +105,11 @@ export interface AppState {
   updateImageProgress: (id: string, progress: number) => void;
   assignImagesToGroup: (imageIds: string[], groupId: string) => void;
   unassignImagesFromGroup: (imageIds: string[]) => void;
+
+  // Selection state for downloads
+  toggleImageSelection: (id: string) => void;
+  selectAllCompleted: () => void;
+  deselectAll: () => void;
 
   // Prompt Groups state
   promptGroups: PromptGroup[];

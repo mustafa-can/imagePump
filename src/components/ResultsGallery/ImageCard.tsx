@@ -5,6 +5,7 @@ import Image from 'next/image';
 import type { ImageItem } from '@/types';
 import ImageComparison from './ImageComparison';
 import { Button, Modal } from '@/components/ui';
+import { useAppStore } from '@/store/useAppStore';
 
 interface ImageCardProps {
   image: ImageItem;
@@ -12,6 +13,7 @@ interface ImageCardProps {
 
 export default function ImageCard({ image }: ImageCardProps) {
   const [showComparison, setShowComparison] = useState(false);
+  const { toggleImageSelection } = useAppStore();
 
   const resultUrl = useMemo(() => {
     if (image.result) {
@@ -34,7 +36,7 @@ export default function ImageCard({ image }: ImageCardProps) {
 
   return (
     <>
-      <div className="bg-surface rounded-lg shadow overflow-hidden">
+      <div className={`bg-surface rounded-lg shadow overflow-hidden ${image.selected ? 'ring-2 ring-accent' : ''}`}>
         <div className="relative aspect-square">
           <Image
             src={resultUrl}
@@ -43,6 +45,16 @@ export default function ImageCard({ image }: ImageCardProps) {
             className="object-cover"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
+          {/* Selection checkbox */}
+          <div className="absolute top-2 left-2 z-10">
+            <input
+              type="checkbox"
+              checked={image.selected || false}
+              onChange={() => toggleImageSelection(image.id)}
+              className="w-5 h-5 rounded border-2 border-white bg-black/30 checked:bg-accent cursor-pointer"
+              aria-label={`Select ${image.file.name}`}
+            />
+          </div>
         </div>
         <div className="p-3">
           <p className="text-sm font-medium text-secondary truncate mb-2">

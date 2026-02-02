@@ -107,6 +107,31 @@ export const useAppStore = create<AppState>()(
           });
         },
 
+        // Selection methods for downloads
+        toggleImageSelection: (id: string) => {
+          set((state) => ({
+            images: state.images.map((img) =>
+              img.id === id ? { ...img, selected: !img.selected } : img
+            ),
+          }));
+        },
+
+        selectAllCompleted: () => {
+          set((state) => ({
+            images: state.images.map((img) =>
+              img.status === 'completed' && img.result
+                ? { ...img, selected: true }
+                : img
+            ),
+          }));
+        },
+
+        deselectAll: () => {
+          set((state) => ({
+            images: state.images.map((img) => ({ ...img, selected: false })),
+          }));
+        },
+
         // Prompt Groups state
         promptGroups: [],
 
