@@ -416,7 +416,7 @@ class LocalSDProvider implements AIProvider {
     }
   }
 }
-
+//together ai
 // Together AI Provider (FLUX models)
 class TogetherAIProvider implements AIProvider {
   name = 'togetherai';
