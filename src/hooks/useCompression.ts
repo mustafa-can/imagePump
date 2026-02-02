@@ -4,6 +4,64 @@ import { useState, useCallback } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { toast } from '@/components/ui/Toast';
 
+// Quality settings for client-side compression
+const QUALITY_SETTINGS = {
+  low: { quality: 0.6, maxDimension: 1024 },
+  medium: { quality: 0.8, maxDimension: 2048 },
+  high: { quality: 0.92, maxDimension: 4096 },
+};
+
+// Client-side image compression using Canvas API
+async function compressImageClientSide(
+  file: File,
+  quality: 'low' | 'medium' | 'high'
+): Promise<Blob> {
+  const settings = QUALITY_SETTINGS[quality];
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      // Calculate new dimensions
+      let { width, height } = img;
+      if (width > settings.maxDimension || height > settings.maxDimension) {
+        if (width > height) {
+          height = (height / width) * settings.maxDimension;
+          width = settings.maxDimension;
+        } else {
+          width = (width / height) * settings.maxDimension;
+          height = settings.maxDimension;
+        }
+      }
+
+      // Create canvas and compress
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Compression failed'));
+          }
+        },
+        'image/webp',
+        settings.quality
+      );
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 export function useCompression() {
   const {
     compression,
@@ -57,7 +115,7 @@ export function useCompression() {
     [compression.enabled, compressBlob]
   );
 
-  // Compress-only mode: compress all pending images without AI processing
+  // Compress-only mode: compress all pending images CLIENT-SIDE (no server needed)
   const compressAll = useCallback(async () => {
     const pendingImages = images.filter((img) => img.status === 'pending');
 
@@ -69,6 +127,7 @@ export function useCompression() {
     startProcessing();
     let successCount = 0;
     let failCount = 0;
+    let totalSaved = 0;
 
     for (const image of pendingImages) {
       setCurrentProcessingId(image.id);
@@ -78,22 +137,15 @@ export function useCompression() {
       try {
         updateImageProgress(image.id, 30);
 
-        const formData = new FormData();
-        formData.append('image', image.file);
-        formData.append('quality', compression.quality);
+        // Use client-side compression (no server call needed)
+        const originalSize = image.file.size;
+        const compressedBlob = await compressImageClientSide(image.file, compression.quality);
 
-        const response = await fetch('/api/compress', {
-          method: 'POST',
-          body: formData,
-        });
+        updateImageProgress(image.id, 90);
 
-        updateImageProgress(image.id, 70);
+        const compressedSize = compressedBlob.size;
+        totalSaved += originalSize - compressedSize;
 
-        if (!response.ok) {
-          throw new Error('Compression failed');
-        }
-
-        const compressedBlob = await response.blob();
         updateImageProgress(image.id, 100);
         updateImageStatus(image.id, 'completed', compressedBlob);
         successCount++;
@@ -107,7 +159,8 @@ export function useCompression() {
     stopProcessing();
 
     if (successCount > 0) {
-      toast.success(`Compressed ${successCount} image(s)`);
+      const savedMB = (totalSaved / (1024 * 1024)).toFixed(1);
+      toast.success(`Compressed ${successCount} image(s) - Saved ${savedMB}MB`);
     }
     if (failCount > 0) {
       toast.error(`Failed to compress ${failCount} image(s)`);
