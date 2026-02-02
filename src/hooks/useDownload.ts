@@ -34,13 +34,28 @@ export function useDownload() {
         })
       );
 
+      const payload = JSON.stringify({ images: imageData });
+      const payloadSizeMB = payload.length / (1024 * 1024);
+
+      // Vercel Hobby plan limit is ~4.5MB, Pro is higher
+      if (payloadSizeMB > 4) {
+        throw new Error(
+          `Download size too large (${payloadSizeMB.toFixed(1)}MB). Try downloading fewer images at once.`
+        );
+      }
+
       const response = await fetch('/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: imageData }),
+        body: payload,
       });
 
       if (!response.ok) {
+        if (response.status === 413) {
+          throw new Error(
+            'Download size exceeds server limit. Try downloading fewer images at once.'
+          );
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Download generation failed');
       }
