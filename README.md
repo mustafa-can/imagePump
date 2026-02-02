@@ -43,7 +43,7 @@ A powerful Next.js web application for batch AI image editing and compression. U
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/imagepump.git
+git clone https://github.com/mustafa-can/imagepump.git
 cd imagepump
 
 # Install dependencies
