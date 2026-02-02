@@ -1,36 +1,123 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ImagePump
+
+A powerful Next.js web application for batch AI image editing. Upload multiple images, apply prompts, and download all processed results as a ZIP file.
+
+## Features
+
+- **Batch Processing** - Upload and process multiple images at once
+- **Multiple AI Providers** - Choose from 9 different AI image generation services
+- **Prompt Groups** - Apply different prompts to different image sets
+- **Image Compression** - Compress results with quality presets (Low/Medium/High)
+- **ZIP Download** - Download all processed images in a single ZIP file
+- **Before/After Comparison** - Compare original and edited images side-by-side
+- **Rate Limit Handling** - Automatic retry with exponential backoff
+- **User-Friendly Errors** - Clear, actionable error messages
+
+## Supported AI Providers
+
+| Provider | Type | API Key Required |
+|----------|------|------------------|
+| OpenAI (DALL-E) | Paid | Yes |
+| Google (Gemini 2.0 Flash) | Paid | Yes |
+| Stability AI (SD3) | Paid | Yes |
+| Together AI (FLUX) | Free 3 months | Yes |
+| Leonardo.AI | Paid | Yes |
+| ClipDrop | Paid | Yes |
+| Local SD (Forge/A1111) | Free | No (local) |
+| Puter | Free | No |
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/imagepump.git
+cd imagepump
+
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Production Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm run start
+```
 
-## Learn More
+## Usage
 
-To learn more about Next.js, take a look at the following resources:
+1. **Select AI Provider** - Choose your preferred AI service and enter your API key
+2. **Upload Images** - Drag and drop or click to upload images (JPEG, PNG, WebP, max 10MB)
+3. **Set Prompts** - Enter a default prompt or create prompt groups for different images
+4. **Process** - Click "Process" to start AI image generation
+5. **Download** - Download individual images or all as a ZIP file
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Local Stable Diffusion Setup
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+To use free local image generation with Stable Diffusion WebUI Forge:
 
-## Deploy on Vercel
+1. Install [SD WebUI Forge](https://github.com/lllyasviel/stable-diffusion-webui-forge)
+2. Download a model (e.g., SDXL Base) to `models/Stable-diffusion/`
+3. Start Forge with API enabled:
+   ```bash
+   ./webui.sh --api
+   ```
+4. Select "Local SD (Free)" in ImagePump
+5. Enter URL: `http://127.0.0.1:7860`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Tech Stack
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Framework**: Next.js 16
+- **UI**: React 19, Tailwind CSS 4
+- **State**: Zustand
+- **Image Processing**: Sharp
+- **ZIP Generation**: JSZip
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── generate/    # AI image generation endpoint
+│   │   ├── compress/    # Image compression endpoint
+│   │   └── download/    # ZIP download endpoint
+│   ├── page.tsx         # Main application page
+│   └── layout.tsx       # Root layout
+├── components/
+│   ├── ImageUploader/   # Upload and preview
+│   ├── PromptEditor/    # Prompt management
+│   ├── ProcessingQueue/ # Queue status
+│   ├── ResultsGallery/  # Results display
+│   └── ui/              # Reusable components
+├── hooks/               # Custom React hooks
+├── lib/                 # Utilities and API clients
+├── store/               # Zustand state management
+└── types/               # TypeScript definitions
+```
+
+## API Key Security
+
+- API keys are stored in memory only (not persisted)
+- All API calls are proxied through Next.js API routes
+- Keys are never exposed to the client
+
+## License
+
+MIT
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.
