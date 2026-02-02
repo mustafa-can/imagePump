@@ -422,7 +422,7 @@ class TogetherAIProvider implements AIProvider {
   name = 'togetherai';
   private apiKey: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string) { 
     this.apiKey = apiKey;
   }
 
