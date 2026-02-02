@@ -2,6 +2,7 @@
 
 import { useAppStore } from '@/store/useAppStore';
 import { useImageProcessing } from '@/hooks/useImageProcessing';
+import { useCompression } from '@/hooks/useCompression';
 import { ImageUploader, ImagePreview, UploadStatus } from '@/components/ImageUploader';
 import { PromptEditor } from '@/components/PromptEditor';
 import { ProviderSelector } from '@/components/ProviderSelector';
@@ -22,8 +23,9 @@ export default function Home() {
     () => true,
     () => false
   );
-  const { images, isProcessing, reset, resetCompletedImages, selectedProvider, getActiveApiKey } = useAppStore();
+  const { images, isProcessing, reset, resetCompletedImages, selectedProvider, getActiveApiKey, mode, setMode } = useAppStore();
   const { processAll, cancelProcessing, canProcess, pendingCount } = useImageProcessing();
+  const { compressAll, canCompress, pendingCount: compressPendingCount } = useCompression();
 
   const completedCount = images.filter((img) => img.status === 'completed').length;
   const failedCount = images.filter((img) => img.status === 'failed').length;
@@ -40,11 +42,26 @@ export default function Home() {
   }
 
   const getButtonText = () => {
+    if (mode === 'compress-only') {
+      if (images.length === 0) return 'Upload Images First';
+      if (compressPendingCount === 0) return 'No Pending Images';
+      return `Compress ${compressPendingCount} Images`;
+    }
     if (!hasApiKey) return `Set ${currentProvider.name} API Key`;
     if (images.length === 0) return 'Upload Images First';
     if (pendingCount === 0) return 'No Pending Images';
     return `Process ${pendingCount} Images with ${currentProvider.name}`;
   };
+
+  const handleProcess = () => {
+    if (mode === 'compress-only') {
+      compressAll();
+    } else {
+      processAll();
+    }
+  };
+
+  const canProcessOrCompress = mode === 'compress-only' ? canCompress : canProcess;
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -53,9 +70,20 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">ImagePump</h1>
-            <p className="text-sm text-gray-500">AI Image Batch Editor - Multi-Provider</p>
+            <p className="text-sm text-gray-500">AI Image Batch Editor & Compressor</p>
           </div>
           <div className="flex items-center gap-3">
+            <a
+              href="https://github.com/sponsors/mustafa-can"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-pink-600 bg-pink-50 hover:bg-pink-100 rounded-full transition-colors"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+              Sponsor
+            </a>
             {images.length > 0 && (
               <Button variant="ghost" size="sm" onClick={reset}>
                 Reset All
@@ -70,39 +98,79 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Upload & Settings */}
           <div className="lg:col-span-2 space-y-6">
-            {/* AI Provider Section */}
+            {/* Mode Selector */}
             <section className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                1. Select AI Provider
+                1. Select Mode
               </h2>
-              <ProviderSelector />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setMode('ai-edit')}
+                  className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                    mode === 'ai-edit'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium">AI Image Edit</div>
+                  <div className="text-xs mt-1 opacity-75">Edit images with AI prompts</div>
+                </button>
+                <button
+                  onClick={() => setMode('compress-only')}
+                  className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                    mode === 'compress-only'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium">Compress Only</div>
+                  <div className="text-xs mt-1 opacity-75">Compress without AI editing</div>
+                </button>
+              </div>
             </section>
+
+            {/* AI Provider Section - Only show in AI Edit mode */}
+            {mode === 'ai-edit' && (
+              <section className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  2. Select AI Provider
+                </h2>
+                <ProviderSelector />
+              </section>
+            )}
 
             {/* Upload Section */}
             <section className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                2. Upload Images
+                {mode === 'ai-edit' ? '3. Upload Images' : '2. Upload Images'}
               </h2>
               <ImageUploader />
               <ImagePreview />
             </section>
 
-            {/* Prompt Section */}
-            <section className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                3. Configure Prompts
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">
-                Set a default prompt for all images, or create groups to apply different prompts to different images.
-              </p>
-              <PromptEditor />
-            </section>
+            {/* Prompt Section - Only show in AI Edit mode */}
+            {mode === 'ai-edit' && (
+              <section className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  4. Configure Prompts
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  Set a default prompt for all images, or create groups to apply different prompts to different images.
+                </p>
+                <PromptEditor />
+              </section>
+            )}
 
             {/* Compression Section */}
             <section className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                4. Compression (Optional)
+                {mode === 'ai-edit' ? '5. Compression (Optional)' : '3. Compression Settings'}
               </h2>
+              {mode === 'compress-only' && (
+                <p className="text-sm text-gray-500 mb-4">
+                  Select the compression quality for your images.
+                </p>
+              )}
               <CompressionSelector />
               <CompressionPreview />
             </section>
@@ -116,15 +184,15 @@ export default function Home() {
                   onClick={cancelProcessing}
                   className="flex-1"
                 >
-                  Cancel Processing
+                  Cancel {mode === 'compress-only' ? 'Compression' : 'Processing'}
                 </Button>
               ) : (
                 <>
                   <Button
                     size="lg"
-                    onClick={processAll}
-                    disabled={!canProcess}
-                    className="flex-1"
+                    onClick={handleProcess}
+                    disabled={!canProcessOrCompress}
+                    className={`flex-1 ${mode === 'compress-only' ? 'bg-green-600 hover:bg-green-700' : ''}`}
                   >
                     {getButtonText()}
                   </Button>
@@ -185,17 +253,25 @@ export default function Home() {
             )}
 
             {/* Help Section */}
-            <section className="bg-blue-50 rounded-lg p-6">
-              <h3 className="text-sm font-semibold text-blue-900 mb-2">
+            <section className={`${mode === 'compress-only' ? 'bg-green-50' : 'bg-blue-50'} rounded-lg p-6`}>
+              <h3 className={`text-sm font-semibold ${mode === 'compress-only' ? 'text-green-900' : 'text-blue-900'} mb-2`}>
                 How it works
               </h3>
-              <ol className="text-sm text-blue-800 space-y-2">
-                <li>1. Choose an AI provider and set API key</li>
-                <li>2. Upload one or more images</li>
-                <li>3. Set prompts (default or per-group)</li>
-                <li>4. Optionally enable compression</li>
-                <li>5. Process and download results</li>
-              </ol>
+              {mode === 'compress-only' ? (
+                <ol className="text-sm text-green-800 space-y-2">
+                  <li>1. Upload one or more images</li>
+                  <li>2. Select compression quality</li>
+                  <li>3. Compress and download results</li>
+                </ol>
+              ) : (
+                <ol className="text-sm text-blue-800 space-y-2">
+                  <li>1. Choose an AI provider and set API key</li>
+                  <li>2. Upload one or more images</li>
+                  <li>3. Set prompts (default or per-group)</li>
+                  <li>4. Optionally enable compression</li>
+                  <li>5. Process and download results</li>
+                </ol>
+              )}
             </section>
 
             {/* Supported Providers */}
@@ -207,12 +283,26 @@ export default function Home() {
                 <li>• OpenAI (DALL-E 2/3)</li>
                 <li>• Google (Gemini/Imagen)</li>
                 <li>• Stability AI (Stable Diffusion)</li>
+                <li>• Together AI (FLUX)</li>
                 <li>• Leonardo.AI</li>
                 <li>• ClipDrop</li>
                 <li>• Midjourney (via API)</li>
                 <li>• <strong>Local SD (Free!)</strong></li>
                 <li>• <strong>Puter (Free!)</strong></li>
               </ul>
+            </section>
+
+            {/* Support */}
+            <section className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-500">
+                Need help?{' '}
+                <a
+                  href="mailto:yazimcizimcom@gmail.com"
+                  className="text-blue-600 hover:underline"
+                >
+                  yazimcizimcom@gmail.com
+                </a>
+              </p>
             </section>
           </div>
         </div>

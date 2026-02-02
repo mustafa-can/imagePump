@@ -61,6 +61,8 @@ export interface CompressionSettings {
   quality: 'low' | 'medium' | 'high';
 }
 
+export type AppMode = 'ai-edit' | 'compress-only';
+
 export interface GenerationResult {
   success: boolean;
   imageBuffer?: Buffer;
@@ -90,6 +92,10 @@ export interface QualityPreset {
 }
 
 export interface AppState {
+  // App mode
+  mode: AppMode;
+  setMode: (mode: AppMode) => void;
+
   // Image state
   images: ImageItem[];
   addImages: (files: File[]) => void;

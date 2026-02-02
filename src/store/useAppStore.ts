@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { AppState, ImageItem, CompressionSettings, PromptGroup, AIProviderType, APIKeys } from '@/types';
+import type { AppState, ImageItem, CompressionSettings, PromptGroup, AIProviderType, APIKeys, AppMode } from '@/types';
 import { getNextGroupColor } from '@/lib/providers';
 
 const initialCompressionSettings: CompressionSettings = {
@@ -14,6 +14,12 @@ export const useAppStore = create<AppState>()(
   devtools(
     persist(
       (set, get) => ({
+        // App mode
+        mode: 'ai-edit' as AppMode,
+        setMode: (mode: AppMode) => {
+          set({ mode });
+        },
+
         // Image state
         images: [],
 
@@ -228,6 +234,7 @@ export const useAppStore = create<AppState>()(
         partialize: (state) => ({
           compression: state.compression,
           selectedProvider: state.selectedProvider,
+          mode: state.mode,
           // Don't persist images or API keys for security
         }),
       }

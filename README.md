@@ -1,11 +1,17 @@
 # ImagePump
 
-A powerful Next.js web application for batch AI image editing. Upload multiple images, apply prompts, and download all processed results as a ZIP file.
+A powerful Next.js web application for batch AI image editing and compression. Upload multiple images, apply AI prompts or just compress, and download all results as a ZIP file.
+
+<a href="https://github.com/sponsors/mustafa-can">
+  <img src="https://img.shields.io/badge/Sponsor-❤️-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor" />
+</a>
 
 ## Features
 
+- **Two Modes** - AI Image Edit or Compress Only
 - **Batch Processing** - Upload and process multiple images at once
 - **Multiple AI Providers** - Choose from 9 different AI image generation services
+- **Compress Only Mode** - Compress images without AI (no API key needed)
 - **Prompt Groups** - Apply different prompts to different image sets
 - **Image Compression** - Compress results with quality presets (Low/Medium/High)
 - **ZIP Download** - Download all processed images in a single ZIP file
@@ -58,11 +64,20 @@ npm run start
 
 ## Usage
 
-1. **Select AI Provider** - Choose your preferred AI service and enter your API key
-2. **Upload Images** - Drag and drop or click to upload images (JPEG, PNG, WebP, max 10MB)
-3. **Set Prompts** - Enter a default prompt or create prompt groups for different images
-4. **Process** - Click "Process" to start AI image generation
-5. **Download** - Download individual images or all as a ZIP file
+### AI Image Edit Mode
+1. **Select Mode** - Choose "AI Image Edit"
+2. **Select AI Provider** - Choose your preferred AI service and enter your API key
+3. **Upload Images** - Drag and drop or click to upload images (JPEG, PNG, WebP, max 10MB)
+4. **Set Prompts** - Enter a default prompt or create prompt groups for different images
+5. **Process** - Click "Process" to start AI image generation
+6. **Download** - Download individual images or all as a ZIP file
+
+### Compress Only Mode
+1. **Select Mode** - Choose "Compress Only"
+2. **Upload Images** - Drag and drop or click to upload images
+3. **Select Quality** - Choose Low, Medium, or High compression
+4. **Compress** - Click "Compress" to process images
+5. **Download** - Download compressed images as a ZIP file
 
 ## Local Stable Diffusion Setup
 
@@ -117,6 +132,10 @@ src/
 ## License
 
 MIT
+
+## Support
+
+Need help? Contact us at [yazimcizimcom@gmail.com](mailto:yazimcizimcom@gmail.com)
 
 ## Contributing
 
