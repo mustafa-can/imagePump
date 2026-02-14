@@ -59,13 +59,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (10MB max)
-    if (image.size > 10 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: 'File size exceeds 10MB limit' },
-        { status: 400 }
-      );
-    }
+
 
     const imageBuffer = Buffer.from(await image.arrayBuffer());
     const provider = getAIProvider(providerType, apiKey);

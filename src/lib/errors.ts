@@ -35,7 +35,7 @@ export const ErrorCodes = {
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
 export const ERROR_MESSAGES: Record<ErrorCode, string> = {
-  [ErrorCodes.FILE_TOO_LARGE]: 'File exceeds maximum size of 10MB',
+  [ErrorCodes.FILE_TOO_LARGE]: 'File is too large to process',
   [ErrorCodes.INVALID_FILE_TYPE]: 'Only JPEG, PNG, and WebP files are supported',
   [ErrorCodes.UPLOAD_FAILED]: 'Failed to upload file. Please try again.',
   [ErrorCodes.API_KEY_INVALID]: 'Invalid API key. Please check your settings.',

@@ -1,18 +1,9 @@
 const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
 export function validateImageFile(file: File): { valid: boolean; error?: string } {
   if (!SUPPORTED_TYPES.includes(file.type)) {
     return {
       valid: false,
       error: 'Only JPEG, PNG, and WebP files are supported',
-    };
-  }
-
-  if (file.size > MAX_FILE_SIZE) {
-    return {
-      valid: false,
-      error: 'File size exceeds 10MB limit',
     };
   }
 
