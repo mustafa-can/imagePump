@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(new Uint8Array(compressed), {
       headers: {
         'Content-Type': 'image/webp',
+        'Cache-Control': 'no-store',
         'X-Original-Size': String(imageBuffer.length),
         'X-Compressed-Size': String(compressed.length),
       },
