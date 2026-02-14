@@ -143,7 +143,7 @@ export default function ProviderSelector() {
         <div className="space-y-4">
           <p className="text-sm text-secondary">
             Enter your API key for {editingProvider ? AI_PROVIDERS[editingProvider].name : 'this provider'}.
-            Your key is stored only in your browser session and never sent to our servers.
+            Your key is stored in your browser&apos;s local storage and never sent to our servers.
           </p>
           <input
             type="password"

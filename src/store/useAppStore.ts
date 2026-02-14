@@ -260,7 +260,7 @@ export const useAppStore = create<AppState>()(
           compression: state.compression,
           selectedProvider: state.selectedProvider,
           mode: state.mode,
-          // Don't persist images or API keys for security
+          apiKeys: state.apiKeys,
         }),
       }
     )
