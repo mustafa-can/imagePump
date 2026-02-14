@@ -43,7 +43,7 @@ class OpenAIProvider implements AIProvider {
   }
 }
 
-// Google Imagen Provider (via Gemini 2.0 Flash Image Generation)
+// Google Imagen Provider (via Gemini 2.5 Flash Image Generation - "Nano Banana")
 class GoogleProvider implements AIProvider {
   name = 'google';
   private apiKey: string;
@@ -69,9 +69,9 @@ class GoogleProvider implements AIProvider {
 
       const base64Image = image.toString('base64');
 
-      // Using Gemini 2.0 Flash experimental for image generation/editing
+      // Using Gemini 2.5 Flash Image (Nano Banana) for image generation/editing
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${this.apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${this.apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -90,7 +90,7 @@ class GoogleProvider implements AIProvider {
               },
             ],
             generationConfig: {
-              responseModalities: ['image', 'text'],
+              responseModalities: ['IMAGE', 'TEXT'],
             },
           }),
         }
