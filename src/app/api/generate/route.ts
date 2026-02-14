@@ -76,7 +76,6 @@ export async function POST(request: NextRequest) {
     return new NextResponse(result.imageBuffer ? new Uint8Array(result.imageBuffer) : null, {
       headers: {
         'Content-Type': 'image/png',
-        'Cache-Control': 'no-store',
         'X-Credits-Used': String(result.usage?.credits || 0),
         'X-Provider': providerType,
       },
