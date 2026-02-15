@@ -2,7 +2,7 @@
 
 import { useAppStore } from '@/store/useAppStore';
 
-const SUGGESTIONS = [
+const EDIT_SUGGESTIONS = [
   'Remove the background and make it transparent',
   'Add a soft blur to the background',
   'Convert to a watercolor painting style',
@@ -13,12 +13,25 @@ const SUGGESTIONS = [
   'Remove all text and logos',
 ];
 
+const GENERATE_SUGGESTIONS = [
+  'A photorealistic landscape at golden hour',
+  'Minimalist product photo on white background',
+  'Abstract digital art with vibrant colors',
+  'Isometric 3D illustration of a cozy room',
+  'Professional headshot portrait, studio lighting',
+  'Flat design icon set for a mobile app',
+  'Watercolor painting of a flower bouquet',
+  'Futuristic city skyline at night',
+];
+
 interface PromptSuggestionsProps {
   onSelect?: (prompt: string) => void;
 }
 
 export default function PromptSuggestions({ onSelect }: PromptSuggestionsProps) {
-  const { setDefaultPrompt, isProcessing } = useAppStore();
+  const { setDefaultPrompt, isProcessing, mode } = useAppStore();
+
+  const suggestions = mode === 'ai-generate' ? GENERATE_SUGGESTIONS : EDIT_SUGGESTIONS;
 
   const handleSelect = (suggestion: string) => {
     if (onSelect) {
@@ -32,7 +45,7 @@ export default function PromptSuggestions({ onSelect }: PromptSuggestionsProps) 
     <div>
       <p className="text-xs font-medium text-gray-500 mb-2">Quick suggestions:</p>
       <div className="flex flex-wrap gap-2">
-        {SUGGESTIONS.map((suggestion) => (
+        {suggestions.map((suggestion) => (
           <button
             key={suggestion}
             onClick={() => handleSelect(suggestion)}

@@ -16,7 +16,7 @@ export const AI_PROVIDERS: Record<AIProviderType, AIProviderConfig> = {
   google: {
     id: 'google',
     name: 'Google (Gemini)',
-    description: 'Gemini 2.5 Flash image generation',
+    description: 'Gemini 2.5 Flash / 3 Pro image generation',
     apiKeyPlaceholder: 'AIza...',
     features: {
       imageEdit: true,

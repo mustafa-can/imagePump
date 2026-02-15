@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import type { AppState, ImageItem, CompressionSettings, PromptGroup, AIProviderType, APIKeys, AppMode } from '@/types';
+import type { AppState, ImageItem, CompressionSettings, PromptGroup, AIProviderType, APIKeys, AppMode, GeminiModel } from '@/types';
 import { getNextGroupColor } from '@/lib/providers';
 
 const initialCompressionSettings: CompressionSettings = {
@@ -185,6 +185,11 @@ export const useAppStore = create<AppState>()(
           set({ selectedProvider: provider });
         },
 
+        geminiModel: 'gemini-2.5-flash' as GeminiModel,
+        setGeminiModel: (model: GeminiModel) => {
+          set({ geminiModel: model });
+        },
+
         apiKeys: initialApiKeys,
         setApiKey: (provider: AIProviderType, key: string) => {
           set((state) => ({
@@ -259,6 +264,7 @@ export const useAppStore = create<AppState>()(
         partialize: (state) => ({
           compression: state.compression,
           selectedProvider: state.selectedProvider,
+          geminiModel: state.geminiModel,
           mode: state.mode,
           apiKeys: state.apiKeys,
         }),

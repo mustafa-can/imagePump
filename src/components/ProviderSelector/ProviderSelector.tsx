@@ -4,12 +4,15 @@ import { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { AI_PROVIDERS, PROVIDER_LIST } from '@/lib/providers';
 import { Button, Modal } from '@/components/ui';
-import type { AIProviderType } from '@/types';
+import type { AIProviderType, GeminiModel } from '@/types';
+import { GEMINI_MODELS } from '@/types';
 
 export default function ProviderSelector() {
   const {
     selectedProvider,
     setSelectedProvider,
+    geminiModel,
+    setGeminiModel,
     apiKeys,
     setApiKey,
     isProcessing,
@@ -119,6 +122,34 @@ export default function ProviderSelector() {
           );
         })}
       </div>
+
+      {/* Gemini Model Selector */}
+      {selectedProvider === 'google' && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-secondary">Gemini Model</label>
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(GEMINI_MODELS) as GeminiModel[]).map((modelKey) => {
+              const model = GEMINI_MODELS[modelKey];
+              const isSelected = geminiModel === modelKey;
+              return (
+                <button
+                  key={modelKey}
+                  onClick={() => setGeminiModel(modelKey)}
+                  disabled={isProcessing}
+                  className={`
+                    p-2 rounded-lg border-2 text-left transition-all
+                    ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-default hover:border-hover'}
+                    ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}
+                  `}
+                >
+                  <div className="font-medium text-sm text-primary">{model.name}</div>
+                  <div className="text-xs text-tertiary mt-0.5">{model.description}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Set API Key Button */}
       {selectedProvider !== 'puter' && (

@@ -49,6 +49,11 @@ export default function Home() {
       return `Compress ${compressPendingCount} Images`;
     }
     if (!hasApiKey) return `Set ${currentProvider.name} API Key`;
+    if (mode === 'ai-generate') {
+      if (pendingCount === 0 && images.length > 0) return 'No Pending Images';
+      const count = pendingCount > 0 ? pendingCount : 1;
+      return `Generate ${count} Image${count > 1 ? 's' : ''} with ${currentProvider.name}`;
+    }
     if (images.length === 0) return 'Upload Images First';
     if (pendingCount === 0) return 'No Pending Images';
     return `Process ${pendingCount} Images with ${currentProvider.name}`;
@@ -63,6 +68,9 @@ export default function Home() {
   };
 
   const canProcessOrCompress = mode === 'compress-only' ? canCompress : canProcess;
+  // In generate mode, allow processing even without uploaded images (prompt-only generation)
+  const canGenerate = mode === 'ai-generate' && !isProcessing && hasApiKey && !!useAppStore.getState().defaultPrompt;
+  const canStart = canProcessOrCompress || canGenerate;
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col">
@@ -107,6 +115,17 @@ export default function Home() {
                   <div className="text-xs mt-1 opacity-75">Edit images with AI prompts</div>
                 </button>
                 <button
+                  onClick={() => setMode('ai-generate')}
+                  className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                    mode === 'ai-generate'
+                      ? 'border-purple-500 bg-purple-50 text-purple-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-medium">AI Image Generate</div>
+                  <div className="text-xs mt-1 opacity-75">Generate images from prompts</div>
+                </button>
+                <button
                   onClick={() => setMode('compress-only')}
                   className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
                     mode === 'compress-only'
@@ -120,8 +139,8 @@ export default function Home() {
               </div>
             </section>
 
-            {/* AI Provider Section - Only show in AI Edit mode */}
-            {mode === 'ai-edit' && (
+            {/* AI Provider Section - Show in AI modes */}
+            {(mode === 'ai-edit' || mode === 'ai-generate') && (
               <section className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   2. Select AI Provider
@@ -130,16 +149,34 @@ export default function Home() {
               </section>
             )}
 
+            {/* Prompt Section - Show in AI modes (before upload in generate mode) */}
+            {mode === 'ai-generate' && (
+              <section className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  3. Configure Prompts
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  Describe what images you want to generate. Set a default prompt for all, or create groups with different prompts.
+                </p>
+                <PromptEditor />
+              </section>
+            )}
+
             {/* Upload Section */}
             <section className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                {mode === 'ai-edit' ? '3. Upload Images' : '2. Upload Images'}
+                {mode === 'compress-only' ? '2. Upload Images' : mode === 'ai-generate' ? '4. Upload Images (Optional)' : '3. Upload Images'}
               </h2>
+              {mode === 'ai-generate' && (
+                <p className="text-sm text-gray-500 mb-4">
+                  Optionally upload reference images. Each uploaded image creates one generation slot. Without images, a single image will be generated.
+                </p>
+              )}
               <ImageUploader />
               <ImagePreview />
             </section>
 
-            {/* Prompt Section - Only show in AI Edit mode */}
+            {/* Prompt Section - Show in AI edit mode (after upload) */}
             {mode === 'ai-edit' && (
               <section className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -155,7 +192,7 @@ export default function Home() {
             {/* Compression Section */}
             <section className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                {mode === 'ai-edit' ? '5. Compression (Optional)' : '3. Compression Settings'}
+                {mode === 'compress-only' ? '3. Compression Settings' : mode === 'ai-generate' ? '5. Compression (Optional)' : '5. Compression (Optional)'}
               </h2>
               {mode === 'compress-only' && (
                 <p className="text-sm text-gray-500 mb-4">
@@ -175,15 +212,15 @@ export default function Home() {
                   onClick={cancelProcessing}
                   className="flex-1"
                 >
-                  Cancel {mode === 'compress-only' ? 'Compression' : 'Processing'}
+                  Cancel {mode === 'compress-only' ? 'Compression' : mode === 'ai-generate' ? 'Generation' : 'Processing'}
                 </Button>
               ) : (
                 <>
                   <Button
                     size="lg"
                     onClick={handleProcess}
-                    disabled={!canProcessOrCompress}
-                    className={`flex-1 ${mode === 'compress-only' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                    disabled={!canStart}
+                    className={`flex-1 ${mode === 'compress-only' ? 'bg-green-600 hover:bg-green-700' : mode === 'ai-generate' ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
                   >
                     {getButtonText()}
                   </Button>
@@ -244,8 +281,8 @@ export default function Home() {
             )}
 
             {/* Help Section */}
-            <section className={`${mode === 'compress-only' ? 'bg-green-50' : 'bg-blue-50'} rounded-lg p-6`}>
-              <h3 className={`text-sm font-semibold ${mode === 'compress-only' ? 'text-green-900' : 'text-blue-900'} mb-2`}>
+            <section className={`${mode === 'compress-only' ? 'bg-green-50' : mode === 'ai-generate' ? 'bg-purple-50' : 'bg-blue-50'} rounded-lg p-6`}>
+              <h3 className={`text-sm font-semibold ${mode === 'compress-only' ? 'text-green-900' : mode === 'ai-generate' ? 'text-purple-900' : 'text-blue-900'} mb-2`}>
                 How it works
               </h3>
               {mode === 'compress-only' ? (
@@ -253,6 +290,13 @@ export default function Home() {
                   <li>1. Upload one or more images</li>
                   <li>2. Select compression quality</li>
                   <li>3. Compress and download results</li>
+                </ol>
+              ) : mode === 'ai-generate' ? (
+                <ol className="text-sm text-purple-800 space-y-2">
+                  <li>1. Choose an AI provider and set API key</li>
+                  <li>2. Write a prompt describing the image to generate</li>
+                  <li>3. Optionally upload images for batch generation</li>
+                  <li>4. Generate and download results</li>
                 </ol>
               ) : (
                 <ol className="text-sm text-blue-800 space-y-2">
@@ -272,7 +316,7 @@ export default function Home() {
               </h3>
               <ul className="text-xs text-gray-600 space-y-1">
                 <li>• OpenAI (DALL-E 2/3)</li>
-                <li>• Google (Gemini/Imagen)</li>
+                <li>• Gemini (2.5 Flash / 3 Pro)</li>
                 <li>• Stability AI (Stable Diffusion)</li>
                 <li>• Together AI (FLUX)</li>
                 <li>• Leonardo.AI</li>

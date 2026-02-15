@@ -10,6 +10,21 @@ export type AIProviderType =
   | 'puter'
   | 'togetherai';
 
+export type GeminiModel = 'gemini-2.5-flash' | 'gemini-3-pro';
+
+export const GEMINI_MODELS: Record<GeminiModel, { name: string; modelId: string; description: string }> = {
+  'gemini-2.5-flash': {
+    name: 'Gemini 2.5 Flash',
+    modelId: 'gemini-2.5-flash-image',
+    description: 'Fast image gen/edit (Nano Banana)',
+  },
+  'gemini-3-pro': {
+    name: 'Gemini 3 Pro',
+    modelId: 'gemini-3-pro-image-preview',
+    description: 'High quality image gen/edit (Nanano Banana Pro)',
+  },
+};
+
 export interface AIProviderConfig {
   id: AIProviderType;
   name: string;
@@ -62,7 +77,7 @@ export interface CompressionSettings {
   quality: 'low' | 'medium' | 'high';
 }
 
-export type AppMode = 'ai-edit' | 'compress-only';
+export type AppMode = 'ai-edit' | 'ai-generate' | 'compress-only';
 
 export interface GenerationResult {
   success: boolean;
@@ -73,7 +88,7 @@ export interface GenerationResult {
 
 export interface AIProvider {
   name: string;
-  generateImage(image: Buffer, prompt: string): Promise<GenerationResult>;
+  generateImage(image: Buffer | null, prompt: string): Promise<GenerationResult>;
 }
 
 export interface ZipItem {
@@ -124,6 +139,8 @@ export interface AppState {
   // AI Provider state
   selectedProvider: AIProviderType;
   setSelectedProvider: (provider: AIProviderType) => void;
+  geminiModel: GeminiModel;
+  setGeminiModel: (model: GeminiModel) => void;
   apiKeys: APIKeys;
   setApiKey: (provider: AIProviderType, key: string) => void;
   getActiveApiKey: () => string | undefined;

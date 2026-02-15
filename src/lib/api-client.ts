@@ -10,29 +10,47 @@ class OpenAIProvider implements AIProvider {
     this.client = new OpenAI({ apiKey });
   }
 
-  async generateImage(image: Buffer, prompt: string): Promise<GenerationResult> {
+  async generateImage(image: Buffer | null, prompt: string): Promise<GenerationResult> {
     try {
-      const imageFile = await toFile(image, 'image.png', { type: 'image/png' });
-
-      const response = await this.client.images.edit({
-        model: 'dall-e-2',
-        image: imageFile,
-        prompt,
-        n: 1,
-        size: '1024x1024',
-        response_format: 'b64_json',
-      });
-
-      const imageData = response.data?.[0]?.b64_json;
-      if (!imageData) {
-        return { success: false, error: 'No image data returned from API' };
+      if (image) {
+        // Image editing mode
+        const imageFile = await toFile(image, 'image.png', { type: 'image/png' });
+        const response = await this.client.images.edit({
+          model: 'dall-e-2',
+          image: imageFile,
+          prompt,
+          n: 1,
+          size: '1024x1024',
+          response_format: 'b64_json',
+        });
+        const imageData = response.data?.[0]?.b64_json;
+        if (!imageData) {
+          return { success: false, error: 'No image data returned from API' };
+        }
+        return {
+          success: true,
+          imageBuffer: Buffer.from(imageData, 'base64'),
+          usage: { credits: 1 },
+        };
+      } else {
+        // Image generation mode (text-to-image)
+        const response = await this.client.images.generate({
+          model: 'dall-e-3',
+          prompt,
+          n: 1,
+          size: '1024x1024',
+          response_format: 'b64_json',
+        });
+        const imageData = response.data?.[0]?.b64_json;
+        if (!imageData) {
+          return { success: false, error: 'No image data returned from API' };
+        }
+        return {
+          success: true,
+          imageBuffer: Buffer.from(imageData, 'base64'),
+          usage: { credits: 1 },
+        };
       }
-
-      return {
-        success: true,
-        imageBuffer: Buffer.from(imageData, 'base64'),
-        usage: { credits: 1 },
-      };
     } catch (error) {
       if (error instanceof OpenAI.APIError) {
         if (error.status === 401) return { success: false, error: 'Invalid API key' };
@@ -43,15 +61,17 @@ class OpenAIProvider implements AIProvider {
   }
 }
 
-// Google Imagen Provider (via Gemini 2.5 Flash Image Generation - "Nano Banana")
+// Google Imagen Provider (via Gemini Image Generation)
 class GoogleProvider implements AIProvider {
   name = 'google';
   private apiKey: string;
+  private modelId: string;
   private lastRequestTime = 0;
   private minRequestInterval = 6000; // 6 seconds = max 10 requests/minute
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, modelId: string = 'gemini-2.5-flash-image') {
     this.apiKey = apiKey;
+    this.modelId = modelId;
   }
 
   private async waitForRateLimit(): Promise<void> {
@@ -63,32 +83,28 @@ class GoogleProvider implements AIProvider {
     this.lastRequestTime = Date.now();
   }
 
-  async generateImage(image: Buffer, prompt: string, retryCount = 0): Promise<GenerationResult> {
+  async generateImage(image: Buffer | null, prompt: string, retryCount = 0): Promise<GenerationResult> {
     try {
       await this.waitForRateLimit();
 
-      const base64Image = image.toString('base64');
+      // Build parts: always include text, only include image for editing
+      const parts: Record<string, unknown>[] = [{ text: prompt }];
+      if (image) {
+        parts.push({
+          inline_data: {
+            mime_type: 'image/png',
+            data: image.toString('base64'),
+          },
+        });
+      }
 
-      // Using Gemini 2.5 Flash Image (Nano Banana) for image generation/editing
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${this.apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.modelId}:generateContent?key=${this.apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: prompt },
-                  {
-                    inline_data: {
-                      mime_type: 'image/png',
-                      data: base64Image,
-                    },
-                  },
-                ],
-              },
-            ],
+            contents: [{ parts }],
             generationConfig: {
               responseModalities: ['IMAGE', 'TEXT'],
             },
@@ -139,14 +155,19 @@ class StabilityProvider implements AIProvider {
     this.apiKey = apiKey;
   }
 
-  async generateImage(image: Buffer, prompt: string): Promise<GenerationResult> {
+  async generateImage(image: Buffer | null, prompt: string): Promise<GenerationResult> {
     try {
       const formData = new FormData();
-      formData.append('image', new Blob([new Uint8Array(image)], { type: 'image/png' }), 'image.png');
       formData.append('prompt', prompt);
       formData.append('output_format', 'png');
-      formData.append('strength', '0.7'); // Controls how much to change (0-1)
-      formData.append('mode', 'image-to-image');
+
+      if (image) {
+        formData.append('image', new Blob([new Uint8Array(image)], { type: 'image/png' }), 'image.png');
+        formData.append('strength', '0.7');
+        formData.append('mode', 'image-to-image');
+      } else {
+        formData.append('mode', 'text-to-image');
+      }
 
       const response = await fetch(
         'https://api.stability.ai/v2beta/stable-image/generate/sd3',
@@ -190,51 +211,53 @@ class LeonardoProvider implements AIProvider {
     this.apiKey = apiKey;
   }
 
-  async generateImage(image: Buffer, prompt: string): Promise<GenerationResult> {
+  async generateImage(image: Buffer | null, prompt: string): Promise<GenerationResult> {
     try {
-      // First, upload the init image
-      const uploadResponse = await fetch('https://cloud.leonardo.ai/api/rest/v1/init-image', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          extension: 'png',
-        }),
-      });
+      // Build generation request body
+      const genBody: Record<string, unknown> = {
+        prompt,
+        num_images: 1,
+        width: 1024,
+        height: 1024,
+      };
 
-      if (!uploadResponse.ok) {
-        return { success: false, error: 'Failed to initialize upload' };
+      if (image) {
+        // Image editing: upload init image first
+        const uploadResponse = await fetch('https://cloud.leonardo.ai/api/rest/v1/init-image', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ extension: 'png' }),
+        });
+
+        if (!uploadResponse.ok) {
+          return { success: false, error: 'Failed to initialize upload' };
+        }
+
+        const uploadData = await uploadResponse.json();
+        const { url: presignedUrl, fields, id: initImageId } = uploadData.uploadInitImage;
+
+        const uploadFormData = new FormData();
+        Object.entries(fields as Record<string, string>).forEach(([key, value]) => {
+          uploadFormData.append(key, value);
+        });
+        uploadFormData.append('file', new Blob([new Uint8Array(image)], { type: 'image/png' }));
+
+        await fetch(presignedUrl, { method: 'POST', body: uploadFormData });
+
+        genBody.init_image_id = initImageId;
+        genBody.init_strength = 0.5;
       }
 
-      const uploadData = await uploadResponse.json();
-      const { url: presignedUrl, fields, id: initImageId } = uploadData.uploadInitImage;
-
-      // Upload to presigned URL
-      const uploadFormData = new FormData();
-      Object.entries(fields as Record<string, string>).forEach(([key, value]) => {
-        uploadFormData.append(key, value);
-      });
-      uploadFormData.append('file', new Blob([new Uint8Array(image)], { type: 'image/png' }));
-
-      await fetch(presignedUrl, { method: 'POST', body: uploadFormData });
-
-      // Generate image
       const generateResponse = await fetch('https://cloud.leonardo.ai/api/rest/v1/generations', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          prompt,
-          init_image_id: initImageId,
-          init_strength: 0.5,
-          num_images: 1,
-          width: 1024,
-          height: 1024,
-        }),
+        body: JSON.stringify(genBody),
       });
 
       if (!generateResponse.ok) {
@@ -292,11 +315,14 @@ class ClipDropProvider implements AIProvider {
     this.apiKey = apiKey;
   }
 
-  async generateImage(image: Buffer, prompt: string): Promise<GenerationResult> {
+  async generateImage(image: Buffer | null, prompt: string): Promise<GenerationResult> {
     try {
       const formData = new FormData();
-      formData.append('image_file', new Blob([new Uint8Array(image)], { type: 'image/png' }), 'image.png');
       formData.append('prompt', prompt);
+
+      if (image) {
+        formData.append('image_file', new Blob([new Uint8Array(image)], { type: 'image/png' }), 'image.png');
+      }
 
       const response = await fetch('https://clipdrop-api.co/replace-background/v1', {
         method: 'POST',
@@ -333,7 +359,7 @@ class MidjourneyProvider implements AIProvider {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async generateImage(_image: Buffer, _prompt: string): Promise<GenerationResult> {
+  async generateImage(_image: Buffer | null, _prompt: string): Promise<GenerationResult> {
     // Midjourney doesn't have an official API
     // This would require using an unofficial API service
     return {
@@ -357,25 +383,40 @@ class LocalSDProvider implements AIProvider {
     }
   }
 
-  async generateImage(image: Buffer, prompt: string): Promise<GenerationResult> {
+  async generateImage(image: Buffer | null, prompt: string): Promise<GenerationResult> {
     try {
-      const base64Image = image.toString('base64');
+      let endpoint: string;
+      let requestBody: Record<string, unknown>;
 
-      // Automatic1111 img2img API
-      // Lower denoising = more original preserved; Higher = more changes
-      const requestBody = {
-        init_images: [`data:image/png;base64,${base64Image}`],
-        prompt: prompt,
-        negative_prompt: 'blurry, distorted, deformed',
-        steps: 25,
-        cfg_scale: 7,
-        width: 512,
-        height: 512,
-        denoising_strength: 0.35, // Low value preserves more of original
-        sampler_name: 'Euler a',
-      };
+      if (image) {
+        // img2img - image editing
+        endpoint = `${this.baseUrl}/sdapi/v1/img2img`;
+        requestBody = {
+          init_images: [`data:image/png;base64,${image.toString('base64')}`],
+          prompt,
+          negative_prompt: 'blurry, distorted, deformed',
+          steps: 25,
+          cfg_scale: 7,
+          width: 512,
+          height: 512,
+          denoising_strength: 0.35,
+          sampler_name: 'Euler a',
+        };
+      } else {
+        // txt2img - text-to-image generation
+        endpoint = `${this.baseUrl}/sdapi/v1/txt2img`;
+        requestBody = {
+          prompt,
+          negative_prompt: 'blurry, distorted, deformed',
+          steps: 25,
+          cfg_scale: 7,
+          width: 512,
+          height: 512,
+          sampler_name: 'Euler a',
+        };
+      }
 
-      const response = await fetch(`${this.baseUrl}/sdapi/v1/img2img`, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -426,49 +467,47 @@ class TogetherAIProvider implements AIProvider {
     this.apiKey = apiKey;
   }
 
-  async generateImage(image: Buffer, prompt: string): Promise<GenerationResult> {
+  async generateImage(image: Buffer | null, prompt: string): Promise<GenerationResult> {
     try {
-      const base64Image = image.toString('base64');
+      // Image editing: try FLUX Kontext first
+      if (image) {
+        try {
+          const base64Image = image.toString('base64');
+          const kontextResponse = await fetch('https://api.together.xyz/v1/images/generations', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'black-forest-labs/FLUX.1-Kontext-pro',
+              prompt: prompt,
+              image_url: `data:image/png;base64,${base64Image}`,
+              width: 1024,
+              height: 1024,
+              steps: 28,
+              n: 1,
+              response_format: 'b64_json',
+            }),
+          });
 
-      // Try FLUX Kontext for image editing (combines text + image input)
-      // Falls back to FLUX schnell (text-to-image) if Kontext fails
-      try {
-        // FLUX Kontext - image editing model
-        const kontextResponse = await fetch('https://api.together.xyz/v1/images/generations', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'black-forest-labs/FLUX.1-Kontext-pro',
-            prompt: prompt,
-            image_url: `data:image/png;base64,${base64Image}`,
-            width: 1024,
-            height: 1024,
-            steps: 28,
-            n: 1,
-            response_format: 'b64_json',
-          }),
-        });
-
-        if (kontextResponse.ok) {
-          const data = await kontextResponse.json();
-          const imageData = data.data?.[0]?.b64_json;
-          if (imageData) {
-            return {
-              success: true,
-              imageBuffer: Buffer.from(imageData, 'base64'),
-              usage: { credits: 1 },
-            };
+          if (kontextResponse.ok) {
+            const data = await kontextResponse.json();
+            const imageData = data.data?.[0]?.b64_json;
+            if (imageData) {
+              return {
+                success: true,
+                imageBuffer: Buffer.from(imageData, 'base64'),
+                usage: { credits: 1 },
+              };
+            }
           }
+        } catch {
+          // Kontext not available, fall through to schnell
         }
-      } catch {
-        // Kontext not available, fall through to schnell
       }
 
-      // Fallback: FLUX schnell (free tier - text-to-image only)
-      // Note: This ignores the input image and generates based on prompt only
+      // Text-to-image generation (or fallback from Kontext)
       const schnellResponse = await fetch('https://api.together.xyz/v1/images/generations', {
         method: 'POST',
         headers: {
@@ -515,8 +554,8 @@ class TogetherAIProvider implements AIProvider {
 // Provider factory
 const providerCache = new Map<string, AIProvider>();
 
-export function getAIProvider(providerType: AIProviderType, apiKey: string): AIProvider {
-  const cacheKey = `${providerType}:${apiKey}`;
+export function getAIProvider(providerType: AIProviderType, apiKey: string, options?: { geminiModel?: string }): AIProvider {
+  const cacheKey = `${providerType}:${apiKey}:${options?.geminiModel || ''}`;
 
   if (providerCache.has(cacheKey)) {
     return providerCache.get(cacheKey)!;
@@ -529,7 +568,7 @@ export function getAIProvider(providerType: AIProviderType, apiKey: string): AIP
       provider = new OpenAIProvider(apiKey);
       break;
     case 'google':
-      provider = new GoogleProvider(apiKey);
+      provider = new GoogleProvider(apiKey, options?.geminiModel);
       break;
     case 'stability':
       provider = new StabilityProvider(apiKey);

@@ -33,6 +33,8 @@ export function useImageProcessing(options: ProcessingOptions = {}) {
     promptGroups,
     defaultPrompt,
     selectedProvider,
+    geminiModel,
+    mode,
     getActiveApiKey,
     isProcessing,
     startProcessing,
@@ -91,27 +93,29 @@ export function useImageProcessing(options: ProcessingOptions = {}) {
 
           updateImageProgress(imageId, 30);
 
-          // Convert file to base64
-          const base64Image = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const result = reader.result as string;
-              // Remove the "data:image/xxx;base64," prefix
-              const base64 = result.split(',')[1];
-              resolve(base64);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(image.file);
-          });
+          const puterOptions: Record<string, unknown> = {
+            model: 'gemini-2.5-flash-image-preview',
+          };
+
+          // Include input image for edit mode, or generate mode with uploaded images
+          if (image.file) {
+            const base64Image = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = reader.result as string;
+                const base64 = result.split(',')[1];
+                resolve(base64);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(image.file);
+            });
+            puterOptions.input_image = base64Image;
+            puterOptions.input_image_mime_type = 'image/png';
+          }
 
           updateImageProgress(imageId, 50);
 
-          // Use Gemini via Puter.js
-          const imageElement = await puter.ai.txt2img(prompt, {
-            model: 'gemini-2.5-flash-image-preview',
-            input_image: base64Image,
-            input_image_mime_type: 'image/png',
-          });
+          const imageElement = await puter.ai.txt2img(prompt, puterOptions);
 
           updateImageProgress(imageId, 90);
 
@@ -126,9 +130,14 @@ export function useImageProcessing(options: ProcessingOptions = {}) {
 
         // Standard backend API generation
         const formData = new FormData();
-        formData.append('image', image.file);
         formData.append('prompt', prompt);
         formData.append('provider', selectedProvider);
+        formData.append('mode', mode);
+        formData.append('image', image.file);
+        if (selectedProvider === 'google') {
+          const { GEMINI_MODELS } = await import('@/types');
+          formData.append('geminiModel', GEMINI_MODELS[geminiModel].modelId);
+        }
 
         updateImageProgress(imageId, 30);
 
@@ -178,7 +187,79 @@ export function useImageProcessing(options: ProcessingOptions = {}) {
         return false;
       }
     },
-    [images, selectedProvider, getActiveApiKey, updateImageProgress, updateImageStatus, retryAttempts, retryDelay]
+    [images, selectedProvider, geminiModel, mode, getActiveApiKey, updateImageProgress, updateImageStatus, retryAttempts, retryDelay]
+  );
+
+  // Generate a single image without an uploaded source (for ai-generate mode without images)
+  const generateSingle = useCallback(
+    async (prompt: string): Promise<boolean> => {
+      const apiKey = getActiveApiKey();
+      if (!apiKey) return false;
+
+      try {
+        if (selectedProvider === 'puter') {
+          let puter = window.puter;
+          if (!puter) {
+            for (let i = 0; i < 100; i++) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+              puter = window.puter;
+              if (puter) break;
+            }
+          }
+          if (!puter) throw new Error('Puter SDK not loaded.');
+
+          const imageElement = await puter.ai.txt2img(prompt, {
+            model: 'gemini-2.5-flash-image-preview',
+          });
+          const response = await fetch(imageElement.src);
+          const blob = await response.blob();
+          // Create a placeholder file for the result
+          const file = new File([blob], 'generated.png', { type: 'image/png' });
+          const { addImages, updateImageStatus: updateStatus } = useAppStore.getState();
+          addImages([file]);
+          const newImages = useAppStore.getState().images;
+          const newImage = newImages[newImages.length - 1];
+          updateStatus(newImage.id, 'completed', blob);
+          return true;
+        }
+
+        const formData = new FormData();
+        formData.append('prompt', prompt);
+        formData.append('provider', selectedProvider);
+        formData.append('mode', 'ai-generate');
+        if (selectedProvider === 'google') {
+          const { GEMINI_MODELS } = await import('@/types');
+          formData.append('geminiModel', GEMINI_MODELS[geminiModel].modelId);
+        }
+
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey },
+          body: formData,
+          signal: abortControllerRef.current?.signal,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        // Create a placeholder image entry for the generated result
+        const file = new File([blob], 'generated.png', { type: 'image/png' });
+        const { addImages, updateImageStatus: updateStatus } = useAppStore.getState();
+        addImages([file]);
+        const newImages = useAppStore.getState().images;
+        const newImage = newImages[newImages.length - 1];
+        updateStatus(newImage.id, 'completed', blob);
+        return true;
+      } catch (error) {
+        console.error('Generation error:', error);
+        toast.error(error instanceof Error ? error.message : 'Generation failed');
+        return false;
+      }
+    },
+    [selectedProvider, geminiModel, getActiveApiKey]
   );
 
   const processAll = useCallback(async () => {
@@ -188,8 +269,31 @@ export function useImageProcessing(options: ProcessingOptions = {}) {
       return;
     }
 
-    // Check that all pending images have a valid prompt
     const pendingImages = images.filter((img) => img.status === 'pending');
+
+    // In generate mode, allow processing without images (single generation from prompt)
+    if (pendingImages.length === 0 && mode === 'ai-generate') {
+      if (!defaultPrompt) {
+        toast.error('Please set a prompt for generation');
+        return;
+      }
+
+      abortControllerRef.current = new AbortController();
+      startProcessing();
+
+      const success = await generateSingle(defaultPrompt);
+
+      stopProcessing();
+      abortControllerRef.current = null;
+
+      if (success) {
+        toast.success('Successfully generated 1 image');
+      } else {
+        toast.error('Failed to generate image');
+      }
+      return;
+    }
+
     if (pendingImages.length === 0) {
       toast.error('No images to process');
       return;
@@ -238,13 +342,15 @@ export function useImageProcessing(options: ProcessingOptions = {}) {
     abortControllerRef.current = null;
 
     if (successCount > 0) {
-      toast.success(`Successfully processed ${successCount} image(s)`);
+      toast.success(`Successfully ${mode === 'ai-generate' ? 'generated' : 'processed'} ${successCount} image(s)`);
     }
     if (failCount > 0) {
-      toast.error(`Failed to process ${failCount} image(s)`);
+      toast.error(`Failed to ${mode === 'ai-generate' ? 'generate' : 'process'} ${failCount} image(s)`);
     }
   }, [
     images,
+    mode,
+    defaultPrompt,
     getActiveApiKey,
     getPromptForImage,
     startProcessing,
@@ -252,6 +358,7 @@ export function useImageProcessing(options: ProcessingOptions = {}) {
     setCurrentProcessingId,
     updateImageStatus,
     processImage,
+    generateSingle,
     delayBetweenImages,
   ]);
 
@@ -265,12 +372,14 @@ export function useImageProcessing(options: ProcessingOptions = {}) {
   const pendingImages = images.filter((img) => img.status === 'pending');
   const hasApiKey = !!getActiveApiKey();
   const hasPrompts = pendingImages.some((img) => !!getPromptForImage(img.id));
+  // In generate mode, can start with just a prompt and API key (no images needed)
+  const canGenerateWithoutImages = mode === 'ai-generate' && hasApiKey && !!defaultPrompt && pendingImages.length === 0;
 
   return {
     processAll,
     cancelProcessing,
     isProcessing,
-    canProcess: !isProcessing && pendingImages.length > 0 && hasApiKey && hasPrompts,
+    canProcess: !isProcessing && ((pendingImages.length > 0 && hasApiKey && hasPrompts) || canGenerateWithoutImages),
     pendingCount: pendingImages.length,
     getPromptForImage,
   };

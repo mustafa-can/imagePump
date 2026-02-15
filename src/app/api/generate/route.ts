@@ -17,14 +17,18 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData();
-    const image = formData.get('image') as File;
+    const image = formData.get('image') as File | null;
     const prompt = formData.get('prompt') as string;
     const providerType = formData.get('provider') as AIProviderType;
+    const geminiModel = formData.get('geminiModel') as string | null;
+    const appMode = formData.get('mode') as string | null;
     const apiKey = request.headers.get('x-api-key');
 
-    if (!image) {
+    const isGenerateMode = appMode === 'ai-generate';
+
+    if (!isGenerateMode && !image) {
       return NextResponse.json(
-        { error: 'Image file is required' },
+        { error: 'Image file is required for edit mode' },
         { status: 400 }
       );
     }
@@ -50,19 +54,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(image.type)) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Only JPEG, PNG, and WebP are supported.' },
-        { status: 400 }
-      );
+    // Validate file type (only when image is provided)
+    if (image) {
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(image.type)) {
+        return NextResponse.json(
+          { error: 'Invalid file type. Only JPEG, PNG, and WebP are supported.' },
+          { status: 400 }
+        );
+      }
     }
 
-
-
-    const imageBuffer = Buffer.from(await image.arrayBuffer());
-    const provider = getAIProvider(providerType, apiKey);
+    const imageBuffer = image ? Buffer.from(await image.arrayBuffer()) : null;
+    const provider = getAIProvider(providerType, apiKey, geminiModel ? { geminiModel } : undefined);
     const result = await provider.generateImage(imageBuffer, prompt);
 
     if (!result.success) {
