@@ -6,9 +6,9 @@ import { toast } from '@/components/ui/Toast';
 
 // Quality settings for client-side compression
 const QUALITY_SETTINGS = {
-  low: { quality: 0.6, maxDimension: 1024 },
-  medium: { quality: 0.8, maxDimension: 2048 },
-  high: { quality: 0.92, maxDimension: 4096 },
+  low: { quality: 0.6 },
+  medium: { quality: 0.8 },
+  high: { quality: 0.92 },
 };
 
 // Client-side image compression using Canvas API
@@ -21,29 +21,17 @@ async function compressImageClientSide(
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      // Calculate new dimensions
-      let { width, height } = img;
-      if (width > settings.maxDimension || height > settings.maxDimension) {
-        if (width > height) {
-          height = (height / width) * settings.maxDimension;
-          width = settings.maxDimension;
-        } else {
-          width = (width / height) * settings.maxDimension;
-          height = settings.maxDimension;
-        }
-      }
-
-      // Create canvas and compress
+      // Create canvas at original dimensions
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = img.width;
+      canvas.height = img.height;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Could not get canvas context'));
         return;
       }
 
-      ctx.drawImage(img, 0, 0, width, height);
+      ctx.drawImage(img, 0, 0, img.width, img.height);
 
       canvas.toBlob(
         (blob) => {

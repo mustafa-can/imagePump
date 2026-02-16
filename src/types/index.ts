@@ -104,7 +104,6 @@ export interface CompressionOptions {
 export interface QualityPreset {
   jpeg: number;
   webp: number;
-  maxDimension: number;
 }
 
 export interface AppState {

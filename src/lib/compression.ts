@@ -2,9 +2,9 @@ import sharp from 'sharp';
 import type { CompressionOptions, QualityPreset } from '@/types';
 
 const QUALITY_PRESETS: Record<'low' | 'medium' | 'high', QualityPreset> = {
-  low: { jpeg: 60, webp: 55, maxDimension: 1024 },
-  medium: { jpeg: 80, webp: 75, maxDimension: 2048 },
-  high: { jpeg: 92, webp: 90, maxDimension: 4096 },
+  low: { jpeg: 60, webp: 55 },
+  medium: { jpeg: 80, webp: 75 },
+  high: { jpeg: 92, webp: 90 },
 };
 
 export async function compressImage(
@@ -14,10 +14,7 @@ export async function compressImage(
   const preset = QUALITY_PRESETS[options.quality];
   const format = options.format || 'webp';
 
-  let pipeline = sharp(imageBuffer).resize(preset.maxDimension, preset.maxDimension, {
-    fit: 'inside',
-    withoutEnlargement: true,
-  });
+  let pipeline = sharp(imageBuffer);
 
   switch (format) {
     case 'jpeg':
