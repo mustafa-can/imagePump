@@ -16,7 +16,7 @@ export function getImageDimensions(
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      resolve({ width: img.width, height: img.height });
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
       URL.revokeObjectURL(img.src);
     };
     img.onerror = () => {
@@ -41,7 +41,8 @@ export async function createThumbnail(
         return;
       }
 
-      let { width, height } = img;
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
       if (width > height) {
         if (width > maxSize) {
           height = (height * maxSize) / width;
@@ -87,8 +88,8 @@ export async function preCompressImage(
 
       // Scale down if too large
       const scale = Math.sqrt(maxSize / file.size);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
+      canvas.width = img.naturalWidth * scale;
+      canvas.height = img.naturalHeight * scale;
 
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 

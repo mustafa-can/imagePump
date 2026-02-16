@@ -21,17 +21,20 @@ async function compressImageClientSide(
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
+      // Use naturalWidth/naturalHeight to get intrinsic pixel dimensions
+      const { naturalWidth, naturalHeight } = img;
+
       // Create canvas at original dimensions
       const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = naturalWidth;
+      canvas.height = naturalHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Could not get canvas context'));
         return;
       }
 
-      ctx.drawImage(img, 0, 0, img.width, img.height);
+      ctx.drawImage(img, 0, 0, naturalWidth, naturalHeight);
 
       canvas.toBlob(
         (blob) => {
